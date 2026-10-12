@@ -65,6 +65,7 @@ function setActive(value){
   active=!!value&&ready&&session.phase!=='gameover';$('menu').hidden=active;document.body.classList.toggle('menu-open',!active);keys.clear();primary=false;primaryPressed=false;ads=false;reloadShot=false;
   mousePrimary=mouseAim=false;touchControls.reset();touchControls.setEnabled(active&&session.phase!=='reviving',active);
   gamepadControls.input.reset();padCrouch=padSprint=false;
+  if(active&&document.activeElement?.closest('#menu'))document.activeElement.blur();
   if(active&&audio.ctx)audio.start();else if(!active)audio.pause();
   if(active){if(!started){started=true;announce('Round 1','SURVIVE');audio.play('round');}else if(session.phase==='preparing')announce('Round '+session.round,'PREPARE YOURSELF');}
   else if(started&&session.phase!=='gameover'){$('start').innerHTML='RESUME GAME <span>→</span>';$('restart').hidden=false;$('menu-status').textContent='Paused · Round '+session.round;}
@@ -426,7 +427,8 @@ try{
 renderer.info.autoReset=false;
 function renderFrame(now){
   if(document.hidden||contextLost)return;
-  const interval=profile.mobile?(active?1000/30:200):0;
+  // Leave CPU/GPU time for asset decoding while the loading menu is visible.
+  const interval=!ready?200:profile.mobile?(active?1000/30:200):0;
   if(lastRendered&&now-lastRendered<interval-1)return;
   lastRendered=now;const dt=Math.min((now-previous)/1000,.06);previous=now;frameTime+=dt;frameCount++;renderedFrames++;
   if(frameTime>.75){fps=Math.round(frameCount/frameTime);frameTime=0;frameCount=0;}

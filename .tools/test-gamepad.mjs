@@ -8,7 +8,7 @@ import { chromium } from 'playwright-core';
 const out = 'artifacts/gamepad'; fs.mkdirSync(out, { recursive: true });
 const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || undefined, headless: true,
   args: ['--enable-webgl', '--ignore-gpu-blocklist', '--enable-unsafe-swiftshader'] });
-const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+const page = await browser.newPage({ viewport: { width: 960, height: 720 } });
 const report = { checks: [], errors: [], console: [] };
 const pending = new Map();
 page.on('request', r => pending.set(r, Date.now()));
@@ -94,6 +94,7 @@ try {
   await page.screenshot({ path: `${out}/failure.png` }).catch(() => {});
 } finally {
   report.pendingRequests = [...pending].map(([request, since]) => ({ url: request.url(), elapsedMs: Date.now() - since }));
+  if (report.failure) console.error('Browser diagnostics:', JSON.stringify({ errors: report.errors, console: report.console, pendingRequests: report.pendingRequests }));
   report.state = await state().catch(() => null);
   fs.writeFileSync(`${out}/report.json`, JSON.stringify(report, null, 2));
   await browser.close();
