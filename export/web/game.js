@@ -303,7 +303,7 @@ function readController(dt){
   if(pad.pressed[1]){padCrouch=!padCrouch;padSprint=false;}
   if(pad.pressed[10]){padSprint=true;padCrouch=false;}
   if(pad.forward<.2||pad.aim||pad.fire)padSprint=false;
-  if(pad.pressed[2]){findPrompt();if(prompt&&promptText!=='Barricade secured')interact();else reload();}
+  if(pad.pressed[2]&&!interact())reload();
   if(pad.pressed[3]){session.switchWeapon();equipView();}
   if(pad.pressed[11])melee();
   if(pad.pressed[5])throwGrenade();

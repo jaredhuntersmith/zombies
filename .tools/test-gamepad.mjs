@@ -50,7 +50,7 @@ try {
   await advance(.5); assert.equal((await state()).weapon.mag, 7);
   pass('Left trigger aims and a held right trigger fires the semi-auto pistol once');
   await controls(); await advance(.05); await tap(2); await advance(3); assert.equal((await state()).weapon.mag, 8);
-  pass('X reloads away from an interaction');
+  pass('X reloads when no nearby interaction can be performed');
   await tap(1); await advance(.3); assert((await state()).player.crouched); await tap(1); await advance(.3); assert(!(await state()).player.crouched);
   await controls([0]); await advance(.12); assert(!(await state()).player.grounded); await controls(); await advance(1);
   pass('B toggles crouch and A jumps');
