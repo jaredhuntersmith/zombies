@@ -26,7 +26,14 @@ const advance = seconds => page.evaluate(seconds => kino.debug.step(seconds), se
 const controls = (buttons = [], axes = [0, 0, 0, 0]) => page.evaluate(({ buttons, axes }) => {
   testPad.axes = axes; testPad.buttons = testPad.buttons.map((_, i) => ({ pressed: buttons.includes(i), value: buttons.includes(i) ? 1 : 0 }));
 }, { buttons, axes });
-const tap = async button => { await controls(); await advance(.05); await controls([button]); await advance(.05); await controls(); await advance(.05); };
+// Keep each press/release sequence deterministic even on slow software GPUs.
+const tap = button => page.evaluate(button => {
+  testPad.axes = [0, 0, 0, 0];
+  for (const down of [false, true, false]) {
+    testPad.buttons = testPad.buttons.map((_, i) => ({ pressed: down && i === button, value: down && i === button ? 1 : 0 }));
+    kino.debug.step(.05);
+  }
+}, button);
 const pass = name => { report.checks.push(name); console.log('PASS', name); };
 try {
   await page.goto(process.env.KINO_URL || 'http://127.0.0.1:5173/');
