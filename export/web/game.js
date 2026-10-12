@@ -427,8 +427,10 @@ try{
 renderer.info.autoReset=false;
 function renderFrame(now){
   if(document.hidden||contextLost)return;
-  // Leave CPU/GPU time for asset decoding while the loading menu is visible.
-  const interval=!ready?200:profile.mobile?(active?1000/30:200):0;
+  // Decode startup assets before rendering the full scene. Software renderers
+  // can otherwise starve successive model/animation loads for several minutes.
+  if(!ready){gamepadControls.poll();return;}
+  const interval=profile.mobile?(active?1000/30:200):0;
   if(lastRendered&&now-lastRendered<interval-1)return;
   lastRendered=now;const dt=Math.min((now-previous)/1000,.06);previous=now;frameTime+=dt;frameCount++;renderedFrames++;
   if(frameTime>.75){fps=Math.round(frameCount/frameTime);frameTime=0;frameCount=0;}
