@@ -9,7 +9,12 @@ const out = 'artifacts/gamepad'; fs.mkdirSync(out, { recursive: true });
 const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || undefined, headless: true,
   args: ['--enable-webgl', '--ignore-gpu-blocklist', '--enable-unsafe-swiftshader'] });
 const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
-const report = { checks: [], errors: [] };
+const report = { checks: [], errors: [], console: [] };
+const pending = new Map();
+page.on('request', r => pending.set(r, Date.now()));
+page.on('requestfinished', r => pending.delete(r));
+page.on('requestfailed', r => { pending.delete(r); report.errors.push(`${r.failure()?.errorText} ${r.url()}`); });
+page.on('console', m => { if (['warning', 'error'].includes(m.type())) report.console.push(m.text()); });
 page.on('pageerror', e => report.errors.push(String(e)));
 page.on('response', r => { if (r.status() >= 400) report.errors.push(`HTTP ${r.status()} ${r.url()}`); });
 await page.addInitScript(() => {
@@ -25,6 +30,7 @@ const tap = async button => { await controls(); await advance(.05); await contro
 const pass = name => { report.checks.push(name); console.log('PASS', name); };
 try {
   await page.goto(process.env.KINO_URL || 'http://127.0.0.1:5173/');
+  await page.bringToFront();
   await page.waitForFunction(() => globalThis.kino?.debug.getState().ready, null, { timeout: 180000 });
   await page.bringToFront();
   await advance(.1);
@@ -87,6 +93,7 @@ try {
   report.failure = String(error); console.error(error); process.exitCode = 1;
   await page.screenshot({ path: `${out}/failure.png` }).catch(() => {});
 } finally {
+  report.pendingRequests = [...pending].map(([request, since]) => ({ url: request.url(), elapsedMs: Date.now() - since }));
   report.state = await state().catch(() => null);
   fs.writeFileSync(`${out}/report.json`, JSON.stringify(report, null, 2));
   await browser.close();
