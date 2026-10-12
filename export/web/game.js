@@ -11,6 +11,7 @@ import { PerkDrink } from './perk-drink.js';
 import { MysteryBox } from './mystery-box.js';
 import { createZombieTouch } from './zombies-touch.js';
 import { configureKinoAssets, assetDiagnostics } from './runtime-assets.js';
+import { createGamepadControls } from './gamepad-controls.js';
 
 const $=id=>document.getElementById(id), keys=new Set(),audio=new GameAudio();
 const profile=configureKinoAssets();
@@ -38,6 +39,9 @@ const errors=[];
 let lastShot=null;
 let pendingMelee=null,lastReloadSerial=0,reloadShot=false;
 let mousePrimary=false,mouseAim=false;
+const gamepadControls=createGamepadControls();
+let usingGamepad=false,padCrouch=false,padSprint=false;
+const keyboardHint=$('controls-hint').textContent;
 const touchControls=createZombieTouch({
   onLook:(x,y,sensitivity)=>{
     if(!active||session.phase==='reviving')return;
@@ -60,14 +64,15 @@ function announce(title,small='KINO DER TOTEN',duration=4){$('announcement-title
 function setActive(value){
   active=!!value&&ready&&session.phase!=='gameover';$('menu').hidden=active;document.body.classList.toggle('menu-open',!active);keys.clear();primary=false;primaryPressed=false;ads=false;reloadShot=false;
   mousePrimary=mouseAim=false;touchControls.reset();touchControls.setEnabled(active&&session.phase!=='reviving',active);
+  gamepadControls.input.reset();padCrouch=padSprint=false;
   if(active&&audio.ctx)audio.start();else if(!active)audio.pause();
   if(active){if(!started){started=true;announce('Round 1','SURVIVE');audio.play('round');}else if(session.phase==='preparing')announce('Round '+session.round,'PREPARE YOURSELF');}
   else if(started&&session.phase!=='gameover'){$('start').innerHTML='RESUME GAME <span>→</span>';$('restart').hidden=false;$('menu-status').textContent='Paused · Round '+session.round;}
 }
-function start(){if(!ready||contextLost)return;if(session.phase==='gameover')reset();audio.start();warmViewAudio();if(touchControls.mode){setActive(true);return;}renderer.domElement.requestPointerLock?.()?.catch(e=>toast('Click the game to capture the mouse'));}
+function start(){if(!ready||contextLost)return;if(session.phase==='gameover')reset();audio.start();warmViewAudio();if(touchControls.mode||usingGamepad){setActive(true);return;}renderer.domElement.requestPointerLock?.()?.catch(e=>toast('Click the game to capture the mouse'));}
 $('start').addEventListener('click',start);$('restart').addEventListener('click',()=>{reset();start();});
 renderer.domElement.addEventListener('click',()=>{if(!active)start();});
-document.addEventListener('pointerlockchange',()=>{if(touchControls.mode&&!document.pointerLockElement)return;setActive(document.pointerLockElement===renderer.domElement);});
+document.addEventListener('pointerlockchange',()=>{if((touchControls.mode||usingGamepad)&&!document.pointerLockElement)return;setActive(document.pointerLockElement===renderer.domElement);});
 function suspendRendering(){renderer.setAnimationLoop(null);if(ready){setActive(false);document.exitPointerLock?.();}audio.pause();}
 function resumeRendering(){previous=performance.now();lastRendered=0;if(!document.hidden&&!contextLost)renderer.setAnimationLoop(renderFrame);}
 document.addEventListener('visibilitychange',()=>{if(document.hidden)suspendRendering();else resumeRendering();});
@@ -76,11 +81,13 @@ addEventListener('pageshow',resumeRendering);
 renderer.domElement.addEventListener('webglcontextlost',event=>{event.preventDefault();contextLost=true;suspendRendering();$('start').disabled=true;$('menu-status').textContent='Graphics paused. Waiting for Safari to restore the game…';});
 renderer.domElement.addEventListener('webglcontextrestored',()=>{contextLost=false;$('start').disabled=!ready;$('menu-status').textContent='Graphics restored · tap to resume';resumeRendering();});
 addEventListener('blur',()=>{keys.clear();primary=false;ads=false;if(started&&active){setActive(false);document.exitPointerLock?.();}});
-addEventListener('mousemove',e=>{if(!active||document.pointerLockElement!==renderer.domElement)return;const sensitivity=ads?.0012:.002;camera.rotation.y-=e.movementX*sensitivity;camera.rotation.x=THREE.MathUtils.clamp(camera.rotation.x-e.movementY*sensitivity,-1.5,1.5);});
+addEventListener('mousemove',e=>{if(!active||document.pointerLockElement!==renderer.domElement)return;if(e.movementX||e.movementY)usingGamepad=false;const sensitivity=ads?.0012:.002;camera.rotation.y-=e.movementX*sensitivity;camera.rotation.x=THREE.MathUtils.clamp(camera.rotation.x-e.movementY*sensitivity,-1.5,1.5);});
 addEventListener('mousedown',e=>{if(!active||e.sourceCapabilities?.firesTouchEvents||e.target.closest('#touch-controls'))return;if(e.button===0){mousePrimary=primary=true;primaryPressed=true;}if(e.button===2)mouseAim=ads=true;});
 addEventListener('mouseup',e=>{if(e.sourceCapabilities?.firesTouchEvents)return;if(e.button===0)mousePrimary=primary=false;if(e.button===2)mouseAim=ads=false;});
 addEventListener('contextmenu',e=>e.preventDefault());
 addEventListener('keydown',e=>{
+  if(e.target.matches('input,select,textarea'))return;
+  usingGamepad=false;
   if(['Space','Tab','F3'].includes(e.code))e.preventDefault();
   keys.add(e.code);if(e.repeat||!active)return;
   if(e.code==='KeyR')reload();if(e.code==='KeyV')melee();if(e.code==='KeyG')throwGrenade();if(e.code==='KeyF'||e.code==='KeyE')interact();
@@ -268,6 +275,7 @@ function interact(){
 }
 function repair(b){if(b.count>=(b.boards.length||6)||repairLeft>0)return false;repairLeft=.75;world.setBoards(b,b.count+1);if(b.rewardRound!==session.round){b.rewardRound=session.round;b.reward=0;}if(b.reward<50*session.round){session.addPoints(10);b.reward+=10;}audio.play('board');return true;}
 function reset(){
+  gamepadControls.input.reset();padCrouch=padSprint=false;
   pendingMelee=null;lastReloadSerial=0;reloadShot=false;
   touchControls.reset();mousePrimary=mouseAim=false;toastUntil=0;announcementUntil=0;hitUntil=0;flashUntil=0;primary=false;primaryPressed=false;ads=false;keys.clear();
   session.reset();enemies.reset();world.reset(session);player.setSpawn(vector(spawn.position));player.respawn();camera.rotation.set(0,spawn.yaw-Math.PI/2,0);
@@ -280,19 +288,43 @@ function reset(){
 function returnToLobby(){
   const dest=data.entities.find(e=>e.targetname==='theater_teleport_player0');player.setPosition(vector(dest.position));camera.rotation.set(0,dest.yaw-Math.PI/2,0);cooldownUntil=session.time+90;flashUntil=session.time+.8;
 }
+function readController(dt){
+  const pad=gamepadControls.poll(),empty={forward:0,strafe:0,fire:false,aim:false,use:false,jump:false,pressed:[]};
+  if(pad.disconnected){if(active&&usingGamepad){setActive(false);document.exitPointerLock?.();$('menu-status').textContent='Controller disconnected · reconnect, then resume';}usingGamepad=false;padCrouch=padSprint=false;return empty;}
+  if(pad.activity)usingGamepad=true;
+  if(!ready||document.hidden||!document.hasFocus())return empty;
+  if(pad.pressed[9]){if(active){setActive(false);document.exitPointerLock?.();}else start();return empty;}
+  if(!active){gamepadControls.menu(pad);return empty;}
+  if(session.phase==='reviving'||session.phase==='gameover'){padCrouch=padSprint=false;return empty;}
+  const settings=gamepadControls.input.settings;
+  const rate=2.8*settings.sensitivity*(pad.aim?settings.adsSensitivity:1)*dt;
+  camera.rotation.y-=pad.lookX*rate;camera.rotation.x=THREE.MathUtils.clamp(camera.rotation.x-pad.lookY*rate*(settings.invertY?-1:1),-1.5,1.5);
+  if(pad.pressed[1]){padCrouch=!padCrouch;padSprint=false;}
+  if(pad.pressed[10]){padSprint=true;padCrouch=false;}
+  if(pad.forward<.2||pad.aim||pad.fire)padSprint=false;
+  if(pad.pressed[2]){findPrompt();if(prompt&&promptText!=='Barricade secured')interact();else reload();}
+  if(pad.pressed[3]){session.switchWeapon();equipView();}
+  if(pad.pressed[11])melee();
+  if(pad.pressed[5])throwGrenade();
+  if(pad.pressed[4])features.throwMonkey();
+  if(pad.pressed[13])features.placeClaymore();
+  if(pad.pressed[12]&&session.toggleAttachment())equipView();
+  return pad;
+}
 function update(dt){
+  const pad=readController(dt);
   if(!ready)return;
   touchControls.setEnabled(active&&session.phase!=='reviving'&&session.phase!=='gameover',active&&session.phase!=='gameover');
   const touch=touchControls.input.read();
-  primary=mousePrimary||touch.fire;primaryPressed ||= touch.firePressed;ads=mouseAim||touch.aim;
+  primary=mousePrimary||touch.fire||pad.fire;primaryPressed ||= touch.firePressed||pad.pressed[7];ads=mouseAim||touch.aim||pad.aim;
   if(active){
     session.update(dt);
     if(session.phase!=='gameover'){
       resolveMelee();
       if(session.reloadLeft>0&&session.reloadSerial!==lastReloadSerial){lastReloadSerial=session.reloadSerial;view.reload(false,session.reloadDuration,session.reloadStage);}
-      const forward=Number(keys.has('KeyW'))-Number(keys.has('KeyS'))+touch.forward,strafe=Number(keys.has('KeyD'))-Number(keys.has('KeyA'))+touch.strafe;
-      const moving=Math.hypot(forward,strafe)>.01,sprint=((keys.has('ShiftLeft')||keys.has('ShiftRight'))&&keys.has('KeyW')||touch.sprint)&&!ads&&!session.reloadLeft&&!session.meleeLeft&&!session.drinking;
-      player.update(dt,session.phase==='reviving'?{}:{forward,strafe,sprint,crouch:keys.has('ControlLeft')||keys.has('ControlRight')||keys.has('KeyC')||touch.crouch,jump:keys.has('Space'),jumpPressed:touch.jump});
+      const forward=THREE.MathUtils.clamp(Number(keys.has('KeyW'))-Number(keys.has('KeyS'))+touch.forward+pad.forward,-1,1),strafe=THREE.MathUtils.clamp(Number(keys.has('KeyD'))-Number(keys.has('KeyA'))+touch.strafe+pad.strafe,-1,1);
+      const moving=Math.hypot(forward,strafe)>.01,sprint=((keys.has('ShiftLeft')||keys.has('ShiftRight'))&&keys.has('KeyW')||touch.sprint||(usingGamepad&&padSprint))&&!ads&&!session.reloadLeft&&!session.meleeLeft&&!session.drinking;
+      player.update(dt,session.phase==='reviving'?{}:{forward,strafe,sprint,crouch:keys.has('ControlLeft')||keys.has('ControlRight')||keys.has('KeyC')||touch.crouch||(usingGamepad&&padCrouch),jump:keys.has('Space')||pad.jump,jumpPressed:touch.jump});
       view.update(dt,{moving,sprint,ads:ads&&!session.def.dualWield,reloading:session.reloadLeft>0,empty:session.weapon.mag===0,time:session.time});
       view.pivot.visible=!session.weaponUnavailable&&!features.events.room;
       perkDrink.update(dt,session);
@@ -302,7 +334,7 @@ function update(dt){
       primaryPressed=false;
       enemies.update(dt,player.getFeetPosition());
       features.update(dt);
-      repairLeft=Math.max(0,repairLeft-dt);findPrompt();if((keys.has('KeyF')||keys.has('KeyE')||touch.use)&&prompt?.barrier)repair(prompt.barrier);
+      repairLeft=Math.max(0,repairLeft-dt);findPrompt();if((keys.has('KeyF')||keys.has('KeyE')||touch.use||pad.use)&&prompt?.barrier)repair(prompt.barrier);
       if(session.round!==lastRound||session.phase!==lastPhase){if(session.phase==='fighting'){announce(session.dogRound?'Fetch their souls':'Round '+session.round,session.dogRound?'HELLHOUNDS':'SURVIVE');audio.play(session.dogRound?'dog_round':'round');if(session.dogRound)audio.play('dog_announce');}else if(session.phase==='preparing'&&session.round>1){announce('Round survived','RELOAD. REBUILD. PREPARE.');audio.play('round_end');}lastRound=session.round;lastPhase=session.phase;}
       mysteryBox.update(dt);
       if(session.teleporter==='linking'&&session.time>linkUntil){session.teleporter='unlinked';toast('Teleporter link timed out');}
@@ -335,9 +367,11 @@ function hud(){
   $('round').textContent=s.round<=5?'I'.repeat(s.round):String(s.round);$('remaining').textContent=s.phase==='preparing'?'STARTS IN '+Math.max(0,Math.ceil(s.countdown)):(s.total-s.killed)+' REMAINING';
   $('points').textContent=s.points.toLocaleString();$('mag').textContent=s.weaponUnavailable?'—':w.mag;$('reserve').textContent=s.weaponUnavailable?'—':w.reserve;$('weapon-name').textContent=s.weaponUnavailable?(s.pack?'Weapon in Pack-a-Punch':'No weapon'):s.def.name;$('grenades').textContent='G · '+s.grenades+' GRENADES'+(s.claymoresOwned?'  |  4 · '+s.claymores+' CLAYMORES':'')+(s.monkeysOwned?'  |  X · '+s.monkeys+' MONKEYS':'');$('reload-label').textContent=s.weaponUnavailable?'':s.reloadLeft>0?'RELOADING':w.mag===0?'R TO RELOAD':s.weapon.upgraded&&data.weapons[w.id].upgrade?.attachment?'5 · SWITCH ATTACHMENT':'';
   if(touchControls.mode){$('grenades').textContent=$('grenades').textContent.replace('G · ','').replace('4 · ','').replace('X · ','');$('reload-label').textContent=$('reload-label').textContent.replace('R TO RELOAD','TAP RELOAD').replace('5 · SWITCH ATTACHMENT','TAP ALT FIRE');}
+  if(usingGamepad){const b=gamepadControls.labels;$('grenades').textContent=$('grenades').textContent.replace('G · ',b.grenade+' · ').replace('4 · ','D-pad ↓ · ').replace('X · ',b.equipment+' · ');$('reload-label').textContent=$('reload-label').textContent.replace('R TO RELOAD',b.use+' TO RELOAD').replace('5 · SWITCH ATTACHMENT','D-pad ↑ · SWITCH ATTACHMENT');}
+  const b=gamepadControls.labels;$('controls-hint').textContent=usingGamepad?`${b.sprint} sprint · ${b.use} reload / use · ${b.crouch} crouch · ${b.melee} knife · ${b.pause} pause`:keyboardHint;
   $('health-fill').style.width=(100*s.health/s.maxHealth)+'%';$('health-label').textContent=Math.ceil(s.health)+' / '+s.maxHealth;
   $('hurt').style.opacity=s.health<s.maxHealth?(1-s.health/s.maxHealth)*.8:0;$('hitmarker').style.opacity=hitUntil>s.time?1:0;$('flash').style.opacity=Math.max(0,flashUntil-s.time);
-  $('prompt').innerHTML=active&&promptText?(promptText==='Barricade secured'?promptText:touchControls.mode?'<kbd>USE</kbd> '+promptText.replace('Hold F','Hold USE'):'<kbd>F</kbd> '+promptText):'';
+  $('prompt').innerHTML=active&&promptText?(promptText==='Barricade secured'?promptText:usingGamepad?'<kbd>'+b.use+'</kbd> '+promptText.replace('Hold F','Hold '+b.use):touchControls.mode?'<kbd>USE</kbd> '+promptText.replace('Hold F','Hold USE'):'<kbd>F</kbd> '+promptText):'';
   if(toastUntil<s.time)$('toast').textContent='';if(announcementUntil<s.time)$('announcement').style.opacity=0;
   const perkHtml=[...s.perks].map(id=>`<span class="perk" title="${perkInfo[id].name}" style="background:${perkInfo[id].color}">${perkInfo[id].icon}</span>`).join('');if($('perks').innerHTML!==perkHtml)$('perks').innerHTML=perkHtml;
   const effectHtml=Object.entries(s.effects).filter(([k,t])=>t>s.time&&powerupNames[k]).map(([k,t])=>`<span class="powerup-timer ${t-s.time<5&&Math.floor(s.time*4)%2?'expiring':''}"><img src="${data.powerups[k].icon}" alt="${powerupNames[k]}"><span>${Math.ceil(t-s.time)}s</span></span>`).join('')+(returnAt?'<span>RETURN IN '+Math.ceil(returnAt-s.time)+'</span>':'');if($('effects').innerHTML!==effectHtml)$('effects').innerHTML=effectHtml;
@@ -346,7 +380,7 @@ function hud(){
   if(debugVisible)$('debug').textContent=`${fps} FPS · ${renderer.info.render.calls} calls\n${camera.position.toArray().map(v=>v.toFixed(1)).join(', ')}\n${enemies.list.length} enemies · ${world.navDisabled.size} blocked polygons`;
 }
 
-function getState(){return {ready,active,started,input:{touch:touchControls.getState(),primary,ads},...(session?session.snapshot():{}),player:player?{...player.state,rotation:camera.rotation.toArray().slice(0,3),position:camera.position.toArray(),feet:player.getFeetPosition().toArray()}:null,enemies:enemies?.snapshot()??[],prompt:promptText,barriers:world?.barriers.map(b=>({id:b.id,count:b.count,position:b.position.toArray(),inside:b.inside.toArray(),group:b.group}))??[],doors:world?[...world.doors.values()].map(d=>({name:d.name,cost:d.cost,flag:d.flag,open:session.openDoors.has(d.name),triggers:d.triggers.map(e=>e.position),parts:d.parts.length})):[],performance:{fps,calls:renderer.info.render.calls,triangles:renderer.info.render.triangles},viewmodelReady:view?.ready??false,errors:[...errors]};}
+function getState(){return {ready,active,started,input:{touch:touchControls.getState(),controller:gamepadControls.snapshot(),usingGamepad,primary,ads},...(session?session.snapshot():{}),player:player?{...player.state,rotation:camera.rotation.toArray().slice(0,3),position:camera.position.toArray(),feet:player.getFeetPosition().toArray()}:null,enemies:enemies?.snapshot()??[],prompt:promptText,barriers:world?.barriers.map(b=>({id:b.id,count:b.count,position:b.position.toArray(),inside:b.inside.toArray(),group:b.group}))??[],doors:world?[...world.doors.values()].map(d=>({name:d.name,cost:d.cost,flag:d.flag,open:session.openDoors.has(d.name),triggers:d.triggers.map(e=>e.position),parts:d.parts.length})):[],performance:{fps,calls:renderer.info.render.calls,triangles:renderer.info.render.triangles},viewmodelReady:view?.ready??false,errors:[...errors]};}
 globalThis.kino={debug:{getState,setActive,pause:()=>setActive(false),resume:()=>setActive(true),reset,teleportPlayer:p=>player.setPosition(vector(p)),lookAt:p=>camera.lookAt(vector(p)),damagePlayer:damage,grantPoints:n=>session.points+=n,interact,shoot,reload,melee,giveWeapon:id=>{session.giveWeapon(id);equipView();},spawnEnemy:(p,kind)=>enemies.spawn(vector(p),null,kind).id,clearEnemies:()=>{for(const z of [...enemies.list])enemies.hurt(z,999999);},collectPowerup:collect,step:(seconds)=>{for(let t=0;t<seconds;t+=1/60)update(Math.min(1/60,seconds-t));},navigationPath:(a,b)=>world.path(vector(a),vector(b)).map(v=>v.toArray()),getEntities:()=>data.entities.filter(e=>e.classname==='trigger_use'||e.targetname==='initial_spawn_points'),showCollision:value=>{world.collision.setDebugVisible(value);scene.add(world.collision.mesh);}}};
 Object.assign(kino.debug,{
   memoryState:()=>{

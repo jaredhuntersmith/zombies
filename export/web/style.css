@@ -3,3 +3,16 @@
 #effects{display:flex;gap:18px;align-items:center;bottom:42px}.powerup-timer{display:flex;flex-direction:column;align-items:center;gap:3px;letter-spacing:1px;text-shadow:0 1px 3px #000}.powerup-timer img{width:44px;height:44px;object-fit:contain;filter:drop-shadow(0 0 5px #80bb4580)}.powerup-timer.expiring{opacity:.3}body.menu-open #effects{visibility:hidden}
 
 #objective{position:fixed;top:84px;left:36px;color:#c6b89a;font:11px/1.5 sans-serif;letter-spacing:1px;pointer-events:none;text-shadow:0 1px 3px #000;z-index:3}.menu-open #objective{display:none}#grenades{max-width:560px;line-height:1.7}
+
+/* Controller settings share the existing pause menu, on desktop and mobile. */
+#menu:has(#controller-settings){align-items:flex-start}
+#menu .menu-content{flex-shrink:0;margin-top:auto;margin-bottom:auto;padding-top:32px;padding-bottom:32px}
+#controller-settings{margin-top:18px;padding-top:14px;border-top:1px solid #c6b89a40;font-size:12px;color:#c6b89a;line-height:1.6}
+#controller-settings summary{cursor:pointer;font-weight:bold;letter-spacing:1px;list-style-position:inside}
+#controller-status{display:block;font-size:10px;font-weight:normal;letter-spacing:0;overflow-wrap:anywhere}
+#controller-settings p{font-size:11px;line-height:1.7;margin:12px 0}
+#controller-settings label{display:grid;grid-template-columns:145px minmax(60px,1fr) 35px;align-items:center;gap:10px;margin:12px 0}
+#controller-settings input[type=range]{width:100%;accent-color:#b83c32;cursor:pointer}
+#controller-settings .controller-invert{display:flex;gap:8px}
+#menu :focus-visible{outline:2px solid #e1c89e;outline-offset:5px}
+@media(max-width:450px){#controller-settings label{grid-template-columns:110px minmax(40px,1fr) 30px;gap:6px}}
