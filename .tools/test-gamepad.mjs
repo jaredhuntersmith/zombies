@@ -67,7 +67,7 @@ try {
   await tap(9); assert(!(await state()).active);
   const time = (await state()).time; await advance(1); assert.equal((await state()).time, time);
   await page.locator('#controller-settings summary').click();
-  await page.locator('[data-setting=sensitivity]').fill('1.75');
+  await page.locator('[data-setting=sensitivity]').evaluate(input => { input.value = '1.75'; input.dispatchEvent(new Event('input', { bubbles: true })); });
   await page.locator('[data-setting=invertY]').check();
   assert.equal((await state()).input.controller.settings.sensitivity, 1.75);
   assert(await page.evaluate(() => JSON.parse(localStorage.getItem('kino.controller')).invertY));
