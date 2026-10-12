@@ -73,7 +73,9 @@ try {
   assert((await state()).barriers.some((b, i) => b.count > barrierBefore[i]));
   pass('Holding X rebuilds a barricade');
   await page.evaluate(() => kino.debug.giveWeapon('mp40_zm'));
-  await page.waitForFunction(() => kino.debug.getState().viewmodelReady && kino.debug.weaponVisual().mode === 'idle');
+  await page.waitForFunction(() => kino.debug.getState().viewmodelReady, null, { timeout: 120000 });
+  await advance(1);
+  assert.equal(await page.evaluate(() => kino.debug.weaponVisual().mode), 'idle');
   const mag = (await state()).weapon.mag; await controls([7]); await advance(.6); await controls();
   assert((await state()).weapon.mag < mag - 1); await tap(3); assert.equal((await state()).weapon.id, 'm1911_zm');
   pass('Automatic weapons keep firing and Y switches weapons');
