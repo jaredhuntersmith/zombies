@@ -27,13 +27,15 @@ const controls = (buttons = [], axes = [0, 0, 0, 0]) => page.evaluate(({ buttons
   testPad.axes = axes; testPad.buttons = testPad.buttons.map((_, i) => ({ pressed: buttons.includes(i), value: buttons.includes(i) ? 1 : 0 }));
 }, { buttons, axes });
 // Keep each press/release sequence deterministic even on slow software GPUs.
-const tap = button => page.evaluate(button => {
+const tap = buttons => page.evaluate(buttons => {
   testPad.axes = [0, 0, 0, 0];
-  for (const down of [false, true, false]) {
-    testPad.buttons = testPad.buttons.map((_, i) => ({ pressed: down && i === button, value: down && i === button ? 1 : 0 }));
-    kino.debug.step(.05);
+  for (const button of [buttons].flat()) {
+    for (const down of [false, true, false]) {
+      testPad.buttons = testPad.buttons.map((_, i) => ({ pressed: down && i === button, value: down && i === button ? 1 : 0 }));
+      kino.debug.step(.05);
+    }
   }
-}, button);
+}, buttons);
 const pass = name => { report.checks.push(name); console.log('PASS', name); };
 try {
   await page.goto(process.env.KINO_URL || 'http://127.0.0.1:5173/');
@@ -81,13 +83,14 @@ try {
   pass('Automatic weapons keep firing and Y switches weapons');
   await tap(9); assert(!(await state()).active);
   const time = (await state()).time; await advance(1); assert.equal((await state()).time, time);
-  await page.locator('#controller-settings summary').click();
-  await page.locator('[data-setting=sensitivity]').evaluate(input => { input.value = '1.75'; input.dispatchEvent(new Event('input', { bubbles: true })); });
-  await page.locator('[data-setting=invertY]').check();
-  assert.equal((await state()).input.controller.settings.sensitivity, 1.75);
+  await page.locator('#controller-settings summary').focus();
+  await tap([0, 13, 15]); // Open with A, move to sensitivity, increase with D-pad.
+  assert(await page.locator('#controller-settings').evaluate(panel => panel.open));
+  assert.equal((await state()).input.controller.settings.sensitivity, 1.05);
+  await tap([13, 13, 13, 0]); // Navigate to invert-Y and toggle with A.
   assert(await page.evaluate(() => JSON.parse(localStorage.getItem('kino.controller')).invertY));
-  await page.screenshot({ path: `${out}/settings.png` });
-  pass('Pause freezes simulation and controller settings persist');
+  await page.screenshot({ path: `${out}/settings.png`, timeout: 90000 });
+  pass('Pause freezes simulation; controller menu navigation changes and saves settings');
   await tap(9); assert((await state()).active);
   await controls([7]); await advance(.05);
   await page.evaluate(() => { testPad.connected = false; }); await advance(.05);
@@ -96,7 +99,7 @@ try {
   await controls(); await advance(.1); assert(!(await state()).active); await tap(9);
   assert((await state()).active); assert((await page.locator('#controls-hint').textContent()).includes('Square'));
   pass('Disconnect pauses safely; PlayStation reconnect uses Square/Options labels');
-  await page.screenshot({ path: `${out}/gameplay.png` });
+  await page.screenshot({ path: `${out}/gameplay.png`, timeout: 90000 });
   assert.deepEqual(report.errors, []); assert.deepEqual((await state()).errors, []);
 } catch (error) {
   report.failure = String(error); console.error(error); process.exitCode = 1;
