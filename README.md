@@ -17,6 +17,37 @@ A browser-based Three.js reconstruction of Black Ops Zombies. Kino der Toten is 
 > names, and other third-party material remain the property of their
 > respective owners and are not relicensed. See [Asset rights](ASSET_NOTICE.md).
 
+**Controller controls (Kino)**
+
+Connect an Xbox, PS4, or PS5 controller over USB or Bluetooth and press a button
+while the game tab is focused. Chrome must report a standard gamepad mapping.
+Click the page once to enable sound if the browser blocks audio autoplay.
+Press Menu/Options to start, pause, or resume. Controller play does not require
+mouse capture. Disconnecting the active controller pauses the solo game.
+
+| Action | Xbox | PlayStation |
+| --- | --- | --- |
+| Move / look | Left / right stick | Left / right stick |
+| Aim / fire | LT / RT | L2 / R2 |
+| Jump / toggle crouch | A / B | Cross / Circle |
+| Reload or contextual use; hold to repair | X | Square |
+| Switch weapon | Y | Triangle |
+| Sprint / knife | Left / right stick click | L3 / R3 |
+| Grenade / Monkey Bomb | RB / LB | R1 / L1 |
+| Claymore / upgraded attachment | D-pad down / up | D-pad down / up |
+
+Sprint starts with a left-stick click while moving forward and stops when you
+release forward movement, aim, or fire. Controller settings in the pause menu
+save look sensitivity, ADS sensitivity, dead zone, and inverted vertical look
+on the current device. D-pad up/down navigates menus; left/right changes the
+focused slider; A/Cross selects. Keyboard/mouse and touch controls remain available.
+This controller change does not add multiplayer.
+
+`npm run test:gamepad` runs browser integration checks with virtual standard
+pads against a running local game. Set `CHROME_PATH` to an installed Chrome
+executable if Playwright's bundled browser is not installed. The tests exercise
+the input API and gameplay but do not replace physical controller testing.
+
 **Give a shout-out.** If you use this code, learn from it, stream it, or build something with it, please shout out **[Luckey Faraday (@luckeyfaraday)](https://github.com/luckeyfaraday)** and link back to this repository. The request is not an extra restriction on the MIT license; the license's copyright and permission notice still needs to be preserved in copies or substantial portions of the code. GitHub's **Cite this repository** control is configured through [CITATION.cff](CITATION.cff).
 
 Contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request, use the issue templates for bugs and ideas, and follow the [Code of Conduct](CODE_OF_CONDUCT.md). Security reports should follow [SECURITY.md](SECURITY.md), not a public issue.

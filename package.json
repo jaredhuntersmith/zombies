@@ -2,7 +2,7 @@
   "name": "kino-browser-zombies",
   "version": "0.1.0",
   "private": true,
-  "description": "Kino der Toten — an unofficial browser-based Three.js reconstruction of Black Ops Zombies.",
+  "description": "Kino der Toten \u2014 an unofficial browser-based Three.js reconstruction of Black Ops Zombies.",
   "author": "Luckey Faraday",
   "license": "MIT",
   "homepage": "https://kino-der-toten.pages.dev/",
@@ -48,7 +48,8 @@
     "build:coast": "powershell -NoProfile -ExecutionPolicy Bypass -File .tools/rebuild-coast.ps1",
     "test:coast": "node .tools/test-coast.mjs",
     "build:ascension": "powershell -NoProfile -ExecutionPolicy Bypass -File .tools/rebuild-ascension.ps1",
-    "test:ascension": "node .tools/test-ascension.mjs"
+    "test:ascension": "node .tools/test-ascension.mjs",
+    "test:gamepad": "node .tools/test-gamepad.mjs"
   },
   "dependencies": {
     "three": "0.185.1",
